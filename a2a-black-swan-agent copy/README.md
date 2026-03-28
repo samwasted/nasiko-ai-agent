@@ -1,5 +1,4 @@
 # 🦢 Black Swan Agent
-### Adversarial Robustness Testing for Algorithmic Trading Systems
 
 **Black Swan** is a headless, institutional-grade adversarial testing agent for algorithmic trading strategies.
 
@@ -14,11 +13,6 @@ By combining:
 Black Swan produces **mathematically defensible robustness reports**, not heuristic opinions.
 
 > If your strategy survives Black Swan, it’s worth considering. If it doesn’t, it never was.
-
----
-
-Black Swan is not a backtesting tool.  
-It is a **strategy adversary**.
 
 ---
 
@@ -56,16 +50,6 @@ It does:
 
 ---
 
-## 👥 Intended Users
-
-- **Quant Developers** validating strategy robustness and out-of-sample stability.
-- **Researchers** studying overfitting, parameter sensitivity, and regime transitions.
-- **Systems Engineers** building automated trading frameworks requiring high-integrity validation.
-
-*Not designed for: Retail signal generation or manual discretionary trading decisions.*
-
----
-
 ## 🏗 Architecture Overview
 
 ```text
@@ -84,28 +68,14 @@ QuantToolset (Deterministic Engine)
 LLM Summary Formulation -> User
 ```
 
----
+## 📂 Code Structure
 
-## ⚡ Quick Start
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/samwasted/nasiko-ai-agent
-cd nasiko-ai-agent/a2a-black-swan-agent
-
-# 2. Setup environment
-python -m venv venv
-source venv/bin/activate
-
-# 3. Install core dependencies
-pip install -r requirements.txt
-
-# 4. Set credentials
-export OPENAI_API_KEY="your_openai_api_key"
-
-# 5. Run the agent
-python -m src
-```
+| File | Responsibility |
+|------|----------------|
+| `__main__.py` | Bootstraps the A2A server via FastAPI & Uvicorn. Registers skills. |
+| `openai_agent_executor.py` | Core wrapper handling JSON-RPC schemas and physical tool execution binding. |
+| `openai_agent.py` | Defines the LLM instruction boundaries, system prompts, and tool lists. |
+| `quant_toolset.py` | The deterministic heavy mathematical engine (No LLM dependencies). |
 
 ---
 
@@ -135,13 +105,13 @@ Supports dynamic parameterization across standard implementations:
 Black Swan applies multiple stress regimes to the Out-of-Sample equity curve:
 
 1. **Execution Failure Simulation (Connectivity)**
-   - Randomly drops 20% of trades to simulate latency, broker disconnects, or extreme slippage.
+   - Randomly drops 20% of trades to simulate latency, broker disconnects, or slippage.
 2. **Trade Order Randomization**
-   - Tests if the strategy's survival was dependent on a specific historical chronological sequence.
+   - Tests if the strategy survived purely due to chronological sequence luck.
 3. **Temporal Disorder Simulation**
-   - Shuffles market days individually to destroy long-term autocorrelation and trend dependency.
+   - Shuffles market days individually to destroy long-term autocorrelation.
 4. **Synthetic Market Generation (GBM)**
-   - Generates large-scale Gaussian GBM price paths calibrated to observed volatility.
+   - Casts millions of Gaussian GBM price paths using observed volatility.
 
 > **Goal:** Detect fragility, not optimize returns.
 
@@ -155,13 +125,10 @@ Black Swan applies multiple stress regimes to the Out-of-Sample equity curve:
 | **Monte Carlo Labs** | High execution latency (15–30 seconds to return response). |
 | **yFinance API** | Dependent on unofficial endpoints, subject to rate-limiting. |
 
-### Modeling Assumptions
-
-To isolate structural robustness, the current engine:
-- **Zero Slippage & Fees:** Intentionally ignored to prevent confounding variables during core logic evaluation.
-- **Full Capital Allocation:** Assumes unweighted 100% allocations (no position sizing) to expose pure strategy volatility.
-
-*These are deliberate simplifications to isolate the strategy's mathematical integrity before layering in market realism.*
+### Known Constraints
+- No spread/cost modeling (yet). Sizing assumes unweighted 100% allocations.
+- Refuses to optimize on datasets containing fewer than 100 periods.
+- Not suitable for ultra-high-frequency (HFT) modeling.
 
 ---
 
@@ -191,31 +158,18 @@ curl -X POST http://localhost:5000/ \
 }'
 ```
 
-### Sample Response Snippet (Data Payload)
-
-```json
-{
-  "ticker": "BTC-USD",
-  "oos_metrics": {
-    "cagr": 0.184,
-    "max_drawdown": 0.271,
-    "sharpe": 1.12
-  },
-  "monte_carlo": {
-    "connectivity_avg": 0.112,
-    "worst_case_var95": -0.354,
-    "gbm_fail_rate": "12.5%"
-  },
-  "analytical_narrative": "Strategy displays strong autocorrelation resistance..."
-}
-```
+**Output Architecture:**
+1. Evaluated optimal parameter ranges per historical epoch.
+2. Out-of-sample (OOS) equity curve metrics.
+3. Monte Carlo robustness distribution models.
+4. An LLM-synthesized plain-text narrative summarizing risk, context, and news.
 
 ---
 
 ## 🔮 Future Work
 
-- [ ] Real-world slippage and commission cost modeling.
+- [ ] Slippage and variable commission cost modeling.
 - [ ] Position sizing (Kelly Criterion, ATR-based risk targeting).
-- [ ] Multi-asset portfolio simulation and co-integration testing.
-- [ ] Market regime detection (bull/bear/sideways segregation).
-- [ ] GPU-accelerated Monte Carlo execution paths.
+- [ ] Multi-asset portfolio simulation.
+- [ ] Market regime detection constraints (bull/bear/sideways segregation).
+- [ ] GPU-accelerated Monte Carlo execution.
