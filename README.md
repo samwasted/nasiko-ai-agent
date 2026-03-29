@@ -91,7 +91,7 @@ LLM Summary Formulation -> User
 Black Swan's execution pipeline is highly deterministic. When a user requests a stress test, the system performs the following sequence of operations:
 
 ```mermaid
-graph TD
+graph LR
     A[User Chat Request] -->|Extracted by LLM| B{Confirm Params?}
     B -->|User Replies Yes| C(yFinance Data Fetch)
     C --> D[pandas-ta Strategy Parameterization]
