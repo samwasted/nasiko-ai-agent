@@ -262,7 +262,6 @@ Black Swan applies multiple stress regimes to the Out-of-Sample equity curve:
 ### Modeling Assumptions
 
 To isolate structural robustness, the current engine:
-- **Zero Slippage & Fees:** Intentionally ignored to prevent confounding variables during core logic evaluation.
 - **Full Capital Allocation:** Assumes unweighted 100% allocations (no position sizing) to expose pure strategy volatility.
 
 *These are deliberate simplifications to isolate the strategy's mathematical integrity before layering in market realism.*
