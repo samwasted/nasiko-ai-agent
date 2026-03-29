@@ -10,6 +10,7 @@ By combining:
 - Walk-Forward Optimization (WFO)
 - Monte Carlo adversarial simulations
 - Strict anti-lookahead backtesting
+- High-performance Numba-accelerated JIT kernels
 
 Black Swan produces **mathematically defensible robustness reports**, not heuristic opinions.
 
@@ -28,41 +29,14 @@ Most retail and even semi-professional backtesting systems suffer from:
 - **Lookahead bias**
 - **Overfitting** via static optimization over the entire dataset
 - **Ignoring execution uncertainty** (assuming perfect fills)
-- **Misleading single-path equity curves**
+- **Ignoring tax drag** (which can destroy many "profitable" strategies)
 
 Black Swan addresses these by:
-- Enforcing strict `t+1` execution semantics
-- Using continuous Walk-Forward Optimization instead of global curve-fitting
-- Stress-testing strategies across multiple adversarial Monte Carlo regimes
-- Evaluating true statistical robustness, not peak performance
-
----
-
-## 🧠 Design Philosophy
-
-Black Swan follows one rule:
-
-> **"Assume your strategy is wrong. Prove otherwise."**
-
-It does not:
-- Predict prices
-- Guarantee future returns
-- Optimize explicitly for best-case outcomes
-
-It does:
-- Stress-test underlying assumptions
-- Penalize fragility and drawdowns
-- Reward empirical robustness
-
----
-
-## 👥 Intended Users
-
-- **Quant Developers** validating strategy robustness and out-of-sample stability.
-- **Researchers** studying overfitting, parameter sensitivity, and regime transitions.
-- **Systems Engineers** building automated trading frameworks requiring high-integrity validation.
-
-*Not designed for: Retail signal generation or manual discretionary trading decisions.*
+- Enforcing strict `t+1` execution semantics.
+- Using continuous Walk-Forward Optimization instead of global curve-fitting.
+- Stress-testing strategies across multiple adversarial Monte Carlo regimes.
+- **Accurate execution modeling:** Native support for per-trade fees and slippage.
+- **Tax-Aware Outcomes:** Real-world capital gains tracking (STCG/LTCG) for US, UK, and India.
 
 ---
 
@@ -73,38 +47,15 @@ User JSON-RPC Request
           ↓
 A2A HTTP Server (__main__.py)
           ↓
-OpenAI Agent Executor
+OpenAI Agent Executor (with session memory)
           ↓
-LLM (Intent & Decision Layer)
+LLM Confirmation Flow (Fees/Slippage/Tax)
           ↓
-QuantToolset (Deterministic Engine)
+QuantToolset (Numba JIT Engine)
           ↓
-[WFO + Monte Carlo + Metrics]
+[WFO + Monte Carlo + Tax Engine]
           ↓
 LLM Summary Formulation -> User
-```
-
----
-
-## ⚡ Quick Start
-
-```bash
-# 1. Clone the repository
-git clone https://github.com/samwasted/nasiko-ai-agent
-cd nasiko-ai-agent/a2a-black-swan-agent
-
-# 2. Setup environment
-python -m venv venv
-source venv/bin/activate
-
-# 3. Install core dependencies
-pip install -r requirements.txt
-
-# 4. Set credentials
-export OPENAI_API_KEY="your_openai_api_key"
-
-# 5. Run the agent
-python -m src
 ```
 
 ---
@@ -112,21 +63,17 @@ python -m src
 ## 🔬 Quantitative Engine
 
 ### Walk-Forward Optimization (WFO)
-Rather than optimizing parameters over the entire dataset, Black Swan perpetually trains and validates parameters forward through time.
+Rather than optimizing parameters over the entire dataset, Black Swan perpetually trains and validates parameters forward through time via Optuna.
 
-- **Train Window:** 6 months  
-- **Test Window:** 1 month (strictly out-of-sample)  
-- **Optimizer:** Optuna (30 trials per train window)  
-- **Objective Function:** `Sharpe - (2.0 × Max Drawdown)`
+- **Train/Test Windows:** Rolling out-of-sample validation.
+- **Engine:** Numba-accelerated `@njit` kernels for near-C execution speeds.
+- **Costs:** Variable fees and slippage applied at each position change.
 
-### Signal Engine (Dynamic)
-Supports dynamic parameterization across standard implementations:
-- **Moving Averages:** `sma`, `ema`, `wma`, `hma`, etc.
-- **Oscillators:** `rsi`, `cci`, `mfi`, `stoch`
-- **MACD Family:** `macd`, `ppo`, `apo`
-- **Bands:** `bbands`, `kc`, `dc`
-
-*Note: All signals strictly enforce **t+1 execution lag** to eliminate lookahead bias.*
+### Tax Engine (Holding-Period Aware)
+Black Swan tracks every discrete trade to determine holding duration. It applies country-specific tax regimes:
+- **India:** STCG (20%) / LTCG (12.5%) after 365 days.
+- **USA:** STCG (37% max) / LTCG (20%) after 365 days.
+- **UK:** 20% Capital Gains.
 
 ---
 
@@ -135,41 +82,21 @@ Supports dynamic parameterization across standard implementations:
 Black Swan applies multiple stress regimes to the Out-of-Sample equity curve:
 
 1. **Execution Failure Simulation (Connectivity)**
-   - Randomly drops 20% of trades to simulate latency, broker disconnects, or extreme slippage.
+   - Randomly drops 20% of trades to simulate latency or broker disconnects.
 2. **Trade Order Randomization**
-   - Tests if the strategy's survival was dependent on a specific historical chronological sequence.
+   - Tests if survival was dependent on a specific historical chronological sequence.
 3. **Temporal Disorder Simulation**
-   - Shuffles market days individually to destroy long-term autocorrelation and trend dependency.
+   - Shuffles market days individually to destroy trend dependency.
 4. **Synthetic Market Generation (GBM)**
    - Generates large-scale Gaussian GBM price paths calibrated to observed volatility.
 
-> **Goal:** Detect fragility, not optimize returns.
-
 ---
 
-## ⚡ Performance Characteristics
+## 🚀 Usage (A2A Confirmation Flow)
 
-| Factor | Impact |
-|--------|--------|
-| **WFO + Optuna** | High CPU thread saturation during Train blocks. |
-| **Monte Carlo Labs** | High execution latency (15–30 seconds to return response). |
-| **yFinance API** | Dependent on unofficial endpoints, subject to rate-limiting. |
+Black Swan requires a two-step confirmation for institutional safety.
 
-### Modeling Assumptions
-
-To isolate structural robustness, the current engine:
-- **Zero Slippage & Fees:** Intentionally ignored to prevent confounding variables during core logic evaluation.
-- **Full Capital Allocation:** Assumes unweighted 100% allocations (no position sizing) to expose pure strategy volatility.
-
-*These are deliberate simplifications to isolate the strategy's mathematical integrity before layering in market realism.*
-
----
-
-## 🚀 Example Usage
-
-Because Black Swan is a headless A2A logic engine, you call it programmatically. Pass dynamic array boundaries directly in the prompt to trigger the optimization engine:
-
-**Request:**
+**1. Initial Request:**
 ```bash
 curl -X POST http://localhost:5000/ \
 -H "Content-Type: application/json" \
@@ -179,42 +106,19 @@ curl -X POST http://localhost:5000/ \
   "method": "message/send",
   "params": {
     "message": {
-      "messageId": "msg-01",
-      "timestamp": "2024-01-01T00:00:00Z",
-      "role": "user",
-      "parts": [{
-        "text": "Run a robustness suite for an SMA strategy on BTC-USD. Use a 3y period. Optimize the fast_period between 5 and 20, and the slow_period between 21 and 100."
-      }]
-    },
-    "metadata": {}
+      "text": "Run a 2y SMA suite on AAPL. Apply 0.1% fees and Indian tax regime."
+    }
   }
 }'
 ```
 
-### Sample Response Snippet (Data Payload)
-
-```json
-{
-  "ticker": "BTC-USD",
-  "oos_metrics": {
-    "cagr": 0.184,
-    "max_drawdown": 0.271,
-    "sharpe": 1.12
-  },
-  "monte_carlo": {
-    "connectivity_avg": 0.112,
-    "worst_case_var95": -0.354,
-    "gbm_fail_rate": "12.5%"
-  },
-  "analytical_narrative": "Strategy displays strong autocorrelation resistance..."
-}
-```
+**2. Confirmation (Reply 'yes' with contextId):**
+The agent will present a summary of the execution costs. Reply "yes" to trigger the compute-intensive Numba simulation.
 
 ---
 
 ## 🔮 Future Work
 
-- [ ] Real-world slippage and commission cost modeling.
 - [ ] Position sizing (Kelly Criterion, ATR-based risk targeting).
 - [ ] Multi-asset portfolio simulation and co-integration testing.
 - [ ] Market regime detection (bull/bear/sideways segregation).
