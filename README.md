@@ -10,7 +10,6 @@ By combining:
 - Walk-Forward Optimization (WFO)
 - Monte Carlo adversarial simulations
 - Strict anti-lookahead backtesting
-- High-performance Numba-accelerated JIT kernels
 
 Black Swan produces **mathematically defensible robustness reports**, not heuristic opinions.
 
@@ -29,14 +28,13 @@ Most retail and even semi-professional backtesting systems suffer from:
 - **Lookahead bias**
 - **Overfitting** via static optimization over the entire dataset
 - **Ignoring execution uncertainty** (assuming perfect fills)
-- **Ignoring tax drag** (which can destroy many "profitable" strategies)
+- **Misleading single-path equity curves**
 
 Black Swan addresses these by:
 - Enforcing strict `t+1` execution semantics
 - Using continuous Walk-Forward Optimization instead of global curve-fitting
 - Stress-testing strategies across multiple adversarial Monte Carlo regimes
-- **Accurate execution modeling:** Native support for per-trade fees and slippage.
-- **Tax-Aware Outcomes:** Real-world capital gains tracking (STCG/LTCG) for US, UK, and India.
+- Evaluating true statistical robustness, not peak performance
 
 ---
 
@@ -75,16 +73,92 @@ User JSON-RPC Request
           ↓
 A2A HTTP Server (__main__.py)
           ↓
-OpenAI Agent Executor (with session memory)
+OpenAI Agent Executor
           ↓
-LLM Confirmation Flow (Fees/Slippage/Tax)
+LLM (Intent & Decision Layer)
           ↓
-QuantToolset (Numba JIT Engine)
+QuantToolset (Deterministic Engine)
           ↓
-[WFO + Monte Carlo + Tax Engine]
+[WFO + Monte Carlo + Metrics]
           ↓
 LLM Summary Formulation -> User
 ```
+
+---
+
+## 🛤 Implementation Step-by-Step Workflow
+
+Black Swan's execution pipeline is highly deterministic. When a user requests a stress test, the system performs the following sequence of operations:
+
+```mermaid
+graph TD
+    A[User Chat Request] -->|Extracted by LLM| B{Confirm Params?}
+    B -->|User Replies Yes| C(yFinance Data Fetch)
+    C --> D[pandas-ta Strategy Parameterization]
+    D --> E((Walk-Forward Optimization))
+    
+    subgraph Quant Toolset Engine
+    E --> F{Apply Constraints}
+    F -->|Commission/Slippage| G(Execution Cost Modeling)
+    F -->|Capital Gains| H(Tax Regiment Simulation)
+    G & H --> I((Monte Carlo Labs))
+    end
+    
+    subgraph External Context
+    B -->|Async Fetch| J[Finnhub News Engine]
+    end
+
+    I --> K[Synthesize Metrics]
+    J --> K
+    K --> L(LLM Generates Markdown Report)
+    L --> Z[Report Delivered to User]
+
+    classDef core fill:#1f2937,stroke:#3b82f6,color:#fff
+    classDef opt fill:#111827,stroke:#10b981,color:#fff
+    classDef LLM fill:#4b5563,stroke:#a855f7,color:#fff
+
+    class C,D,G,H,I,K core
+    class E opt
+    class A,B,L LLM
+```
+
+1. **Intent Extraction (LLM Routing)**
+   - The user inputs a strategy query (e.g., *"Run robustness on AAPL SMA for 2 Years"*).
+   - The LLM parses the natural language to extract the ticker, strategy type, optimization ranges, execution costs (slippage/fees), and applicable tax regimes.
+   - It prompts the user for a final Yes/No confirmation.
+
+2. **Market Data Fetch (`yfinance`)**
+   - Upon confirmation, the agent triggers the `QuantToolset`. 
+   - Uses the Yahoo Finance API to reliably download raw `Open, High, Low, Close, Volume` (OHLCV) price data for the requested historical window.
+
+3. **Strategy Generation (`pandas-ta`)**
+   - The engine validates the strategy string against local indicator mapping.
+   - Technical conditions are parameterized dynamically entirely in memory before executing the backtest loop, ensuring clean vector math mappings.
+
+4. **Walk-Forward Optimization (`optuna`)**
+   - The timeline is sliced into rolling **Train (6-m)** and **Test (1-m)** windows.
+   - Inside each Train block, Optuna runs 150 trials evaluating permutations of the strategy parameters to maximize *Sharpe minus (2 × Max Drawdown)*.
+   - The "winning" parameters from the Train block are locked and strictly traded out-of-sample over the consecutive Test block. 
+   - This process loops recursively through the dataset to construct the final Out-of-Sample (OOS) equity curve.
+
+5. **Execution Modeling (Slippage, Fees, Taxes)**
+   - Trades identified on the OOS curve are subjected to realistic friction.
+   - Percentage-based commissions and slippage are deducted mathematically at transaction nodes.
+   - A tax-engine traverses all capital gains mapped against standard short-term / long-term capital tax rules relative to local jurisdictions (US, UK, India).
+
+6. **Adversarial Stress Lab (`monte-carlo`)**
+   - The net-equity curve is attacked mathematically.
+   - Connectivity disruption (force-dropping 20% of trades).
+   - Sequence risk via Monte Carlo trade permutation shuffling.
+   - 100 iterations of Gaussian Geometric Brownian Motion (GBM) to test strategy breakdown outside historical paths.
+
+7. **Contextual Intelligence (`Finnhub API`)**
+   - In parallel with math simulations, Finnhub's `company-news` endpoint fetches verified journalistic headlines for the asset spanning the most recent trailing 14-days.
+   - Explicit diagnostics track symbol mapping errors alongside valid headlines to prevent hallucinations.
+
+8. **Risk Report Synthesis**
+   - All extracted statistics—WFO OOS returns, VaR/CVaR, fat-tail risk (Kurtosis), Monte Carlo quantiles, and Finnhub headlines—are packed back up the chain.
+   - The LLM generates a mathematically grounded, Markdown-formatted diagnostic report cross-referencing systemic strategy risks against recent market headlines.
 
 ---
 
@@ -104,6 +178,7 @@ pip install -r requirements.txt
 
 # 4. Set credentials
 export OPENAI_API_KEY="your_openai_api_key"
+export FINNHUB_API_KEY="your_finnhub_api_key"
 
 # 5. Run the agent
 python -m src
@@ -114,14 +189,12 @@ python -m src
 ## 🔬 Quantitative Engine
 
 ### Walk-Forward Optimization (WFO)
-Rather than optimizing parameters over the entire dataset, Black Swan perpetually trains and validates parameters forward through time via Optuna.
+Rather than optimizing parameters over the entire dataset, Black Swan perpetually trains and validates parameters forward through time.
 
 - **Train Window:** 6 months  
 - **Test Window:** 1 month (strictly out-of-sample)  
 - **Optimizer:** Optuna (150 trials per train window)  
 - **Objective Function:** `Sharpe - (2.0 × Max Drawdown)`
-- **Engine:** Numba-accelerated `@njit` kernels for near-C execution speeds.
-- **Costs:** Variable fees and slippage applied at each position change.
 
 ### Signal Engine (Dynamic)
 Supports dynamic parameterization across standard implementations:
@@ -132,11 +205,28 @@ Supports dynamic parameterization across standard implementations:
 
 *Note: All signals strictly enforce **t+1 execution lag** to eliminate lookahead bias.*
 
-### Tax Engine (Holding-Period Aware)
-Black Swan tracks every discrete trade to determine holding duration. It applies country-specific tax regimes:
-- **India:** STCG (20%) / LTCG (12.5%) after 365 days.
-- **USA:** STCG (37% max) / LTCG (20%) after 365 days.
-- **UK:** 20% Capital Gains.
+### Finnhub News Fetch Support
+Black Swan supports recent news ingestion through Finnhub and attaches headlines to the report context.
+
+- **Provider:** Finnhub `company-news` endpoint
+- **Environment Variable:** `FINNHUB_API_KEY`
+- **Default Window:** Recent 14 days
+- **Default Limit:** Up to 5 recent headlines
+
+News diagnostics are surfaced in `data_profile` and intended to be printed in the report debug section:
+
+- `recent_news`
+- `recent_news_count`
+- `news_source`
+- `news_status`
+- `news_error`
+- `news_symbol_used`
+
+Ticker coverage note:
+
+- Finnhub `company-news` is company-equity oriented.
+- Symbols like `BTC-USD` may return `unsupported_symbol_for_company_news`.
+- When no headlines are available, the agent should treat this as "No verified headlines retrieved" and avoid inferred headline narratives.
 
 ---
 
@@ -163,22 +253,23 @@ Black Swan applies multiple stress regimes to the Out-of-Sample equity curve:
 |--------|--------|
 | **WFO + Optuna** | High CPU thread saturation during Train blocks. |
 | **Monte Carlo Labs** | High execution latency (15–30 seconds to return response). |
-| **yFinance API** | Dependent on unofficial endpoints, subject to rate-limiting. |
-| **Numba JIT**    | Very fast simulation loop, but incurs a ~3-second compilation hit on first startup. |
+| **News API (Finnhub)** | Stable JSON endpoint for company news; rate limits depend on plan tier. |
 
 ### Modeling Assumptions
 
 To isolate structural robustness, the current engine:
+- **Zero Slippage & Fees:** Intentionally ignored to prevent confounding variables during core logic evaluation.
 - **Full Capital Allocation:** Assumes unweighted 100% allocations (no position sizing) to expose pure strategy volatility.
+
+*These are deliberate simplifications to isolate the strategy's mathematical integrity before layering in market realism.*
 
 ---
 
-## 🚀 Example Usage (A2A Confirmation Flow)
+## 🚀 Example Usage
 
-Because Black Swan is a headless A2A logic engine with built-in financial safeguards, it uses a mandatory two-step confirmation process. 
+Because Black Swan is a headless A2A logic engine, you call it programmatically. Pass dynamic array boundaries directly in the prompt to trigger the optimization engine:
 
-**1. Initial Request:**
-Pass dynamic array boundaries and explicitly request custom fees, slippage, and tax regimes.
+**Request:**
 ```bash
 curl -X POST http://localhost:5000/ \
 -H "Content-Type: application/json" \
@@ -189,37 +280,13 @@ curl -X POST http://localhost:5000/ \
   "params": {
     "message": {
       "messageId": "msg-01",
-      "timestamp": "2026-03-29T00:00:00Z",
+      "timestamp": "2024-01-01T00:00:00Z",
       "role": "user",
       "parts": [{
-        "text": "Run a robustness suite for an SMA strategy on BTC-USD. Use a 2y period. Optimize the fast_period between 5 and 20, and the slow_period between 21 and 100. Assume 0.1% fees, 0.05% slippage, and apply the US tax regime."
+        "text": "Run a robustness suite for an SMA strategy on BTC-USD. Use a 3y period. Optimize the fast_period between 5 and 20, and the slow_period between 21 and 100."
       }]
-    }
-  }
-}'
-```
-
-The agent will respond with a breakdown of execution parameters and ask "Proceed? (yes/no)". You will also receive a `contextId` in the JSON response.
-
-**2. Confirmation (Reply 'yes'):**
-Take the `contextId` from the previous response and reply "yes" to push the strategy into the Numba WFO engine.
-```bash
-curl -X POST http://localhost:5000/ \
--H "Content-Type: application/json" \
--d '{
-  "jsonrpc": "2.0",
-  "id": "2",
-  "method": "message/send",
-  "params": {
-    "message": {
-      "messageId": "msg-02",
-      "contextId": "b00b7c76-597a-4fb1-83f6-07fa756cc811",
-      "timestamp": "2026-03-29T00:01:00Z",
-      "role": "user",
-      "parts": [{
-        "text": "yes"
-      }]
-    }
+    },
+    "metadata": {}
   }
 }'
 ```
@@ -247,6 +314,7 @@ curl -X POST http://localhost:5000/ \
 
 ## 🔮 Future Work
 
+- [ ] Real-world slippage and commission cost modeling.
 - [ ] Position sizing (Kelly Criterion, ATR-based risk targeting).
 - [ ] Multi-asset portfolio simulation and co-integration testing.
 - [ ] Market regime detection (bull/bear/sideways segregation).
