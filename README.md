@@ -106,14 +106,40 @@ curl -X POST http://localhost:5000/ \
   "method": "message/send",
   "params": {
     "message": {
-      "text": "Run a 2y SMA suite on AAPL. Apply 0.1% fees and Indian tax regime."
+      "messageId": "msg-01",
+      "timestamp": "2026-03-29T00:00:00Z",
+      "role": "user",
+      "parts": [{
+        "text": "Run a 2y SMA suite on AAPL. Apply 0.1% fees and Indian tax regime."
+      }]
     }
   }
 }'
 ```
 
 **2. Confirmation (Reply 'yes' with contextId):**
-The agent will present a summary of the execution costs. Reply "yes" to trigger the compute-intensive Numba simulation.
+The agent will present a summary of the execution costs. Reply "yes" mapped to the new contextId to trigger the compute-intensive Numba simulation.
+
+```bash
+curl -X POST http://localhost:5000/ \
+-H "Content-Type: application/json" \
+-d '{
+  "jsonrpc": "2.0",
+  "id": "2",
+  "method": "message/send",
+  "params": {
+    "message": {
+      "messageId": "msg-02",
+      "contextId": "YOUR_CONTEXT_ID_HERE",
+      "timestamp": "2026-03-29T00:01:00Z",
+      "role": "user",
+      "parts": [{
+        "text": "yes"
+      }]
+    }
+  }
+}'
+```
 
 ---
 
