@@ -50,6 +50,10 @@ DEFAULT STRATEGY PARAMETERS (use if user specifies a strategy but no parameter b
    - MACD family (macd, ppo, apo): {"fast": {"low": 5, "high": 15}, "slow": {"low": 20, "high": 40}, "signal": 9}
    - Bands (bbands, kc): {"length": {"low": 10, "high": 50}, "std": 2.0}
 9. If the tool returns an error, report the error message exactly. Do not try to fix or retry.
+10. NEWS INTEGRITY RULE (MANDATORY):
+   - If `data_profile.recent_news_count` is 0, you MUST state: "No verified headlines retrieved." 
+   - When no verified headlines are present, DO NOT reference market headlines, narratives, or external events in Risk Diagnostic.
+   - You may only mention news context if headlines are present in `data_profile.recent_news`.
 
 OUTPUT FORMAT RULES (STRICTLY FOLLOW):
 - DO NOT use any markdown symbols (no #, *, **, `, ```, -, etc.)
@@ -123,9 +127,19 @@ RISK DIAGNOSTIC
 ----------------------------------------
 [Provide 3-4 sentences of plain-text analysis here. Cross-reference the quantitative risks with any news from the recent_news field. DO NOT give buy/sell advice. Focus on strategy vulnerabilities, the impact of transaction costs and taxes on performance, and stress-test findings.]
 
+----------------------------------------
+DEBUG SECTION
+----------------------------------------
+News Source: [data_profile.news_source]
+News Status: [data_profile.news_status]
+News Error: [data_profile.news_error]
+News Symbol Used: [data_profile.news_symbol_used]
+Recent News Count: [data_profile.recent_news_count]
+Recent News Array: [print the raw data_profile.recent_news array exactly as returned]
+
 ========================================
 END OF REPORT
 ========================================
 
-IMPORTANT: Adapt the above template to the actual data returned. If recent_news contains headlines, weave them into the Risk Diagnostic section to contextualize the quantitative findings.""",
+IMPORTANT: Adapt the above template to the actual data returned. Never infer or fabricate news context when recent_news_count is 0.""",
     }

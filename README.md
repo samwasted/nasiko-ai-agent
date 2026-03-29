@@ -118,7 +118,7 @@ Rather than optimizing parameters over the entire dataset, Black Swan perpetuall
 
 - **Train Window:** 6 months  
 - **Test Window:** 1 month (strictly out-of-sample)  
-- **Optimizer:** Optuna (30 trials per train window)  
+- **Optimizer:** Optuna (150 trials per train window)  
 - **Objective Function:** `Sharpe - (2.0 × Max Drawdown)`
 - **Engine:** Numba-accelerated `@njit` kernels for near-C execution speeds.
 - **Costs:** Variable fees and slippage applied at each position change.
@@ -213,7 +213,7 @@ curl -X POST http://localhost:5000/ \
   "params": {
     "message": {
       "messageId": "msg-02",
-      "contextId": "YOUR_CONTEXT_ID_HERE",
+      "contextId": "b00b7c76-597a-4fb1-83f6-07fa756cc811",
       "timestamp": "2026-03-29T00:01:00Z",
       "role": "user",
       "parts": [{

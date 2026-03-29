@@ -102,6 +102,7 @@ pip install -r requirements.txt
 
 # 4. Set credentials
 export OPENAI_API_KEY="your_openai_api_key"
+export FINNHUB_API_KEY="your_finnhub_api_key"
 
 # 5. Run the agent
 python -m src
@@ -116,7 +117,7 @@ Rather than optimizing parameters over the entire dataset, Black Swan perpetuall
 
 - **Train Window:** 6 months  
 - **Test Window:** 1 month (strictly out-of-sample)  
-- **Optimizer:** Optuna (30 trials per train window)  
+- **Optimizer:** Optuna (150 trials per train window)  
 - **Objective Function:** `Sharpe - (2.0 × Max Drawdown)`
 
 ### Signal Engine (Dynamic)
@@ -127,6 +128,29 @@ Supports dynamic parameterization across standard implementations:
 - **Bands:** `bbands`, `kc`, `dc`
 
 *Note: All signals strictly enforce **t+1 execution lag** to eliminate lookahead bias.*
+
+### Finnhub News Fetch Support
+Black Swan supports recent news ingestion through Finnhub and attaches headlines to the report context.
+
+- **Provider:** Finnhub `company-news` endpoint
+- **Environment Variable:** `FINNHUB_API_KEY`
+- **Default Window:** Recent 14 days
+- **Default Limit:** Up to 5 recent headlines
+
+News diagnostics are surfaced in `data_profile` and intended to be printed in the report debug section:
+
+- `recent_news`
+- `recent_news_count`
+- `news_source`
+- `news_status`
+- `news_error`
+- `news_symbol_used`
+
+Ticker coverage note:
+
+- Finnhub `company-news` is company-equity oriented.
+- Symbols like `BTC-USD` may return `unsupported_symbol_for_company_news`.
+- When no headlines are available, the agent should treat this as "No verified headlines retrieved" and avoid inferred headline narratives.
 
 ---
 
@@ -153,7 +177,7 @@ Black Swan applies multiple stress regimes to the Out-of-Sample equity curve:
 |--------|--------|
 | **WFO + Optuna** | High CPU thread saturation during Train blocks. |
 | **Monte Carlo Labs** | High execution latency (15–30 seconds to return response). |
-| **yFinance API** | Dependent on unofficial endpoints, subject to rate-limiting. |
+| **News API (Finnhub)** | Stable JSON endpoint for company news; rate limits depend on plan tier. |
 
 ### Modeling Assumptions
 

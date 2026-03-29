@@ -11,8 +11,11 @@ Numba-accelerated backtester with fees, slippage & per-trade tax.
 import asyncio
 import json
 import logging
+import os
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
+import httpx
 import numpy as np
 import pandas as pd
 import pandas_ta as ta
@@ -278,7 +281,7 @@ class QuantToolset:
         # 2. Walk-Forward Optimization (WFO)
         wfo_result = self._run_wfo(
             df, strategy_type, params,
-            wfo_train_days=180, wfo_test_days=30, optuna_trials=30,
+            wfo_train_days=180, wfo_test_days=30, optuna_trials=150,
             penalty_factor=2.0, fees=fees, slippage=slippage, tax_regime=tax_regime,
         )
         wfo_daily_returns = wfo_result["daily_returns"]
@@ -302,12 +305,9 @@ class QuantToolset:
         hurst = self._compute_hurst_exponent(close_series)
         tail = self._compute_tail_risk(daily_returns)
 
-        # Fetch latest news
-        try:
-            news_items = yf.Ticker(ticker).news
-            recent_news = [item.get("title", "") for item in news_items[:5]] if news_items else []
-        except Exception:
-            recent_news = []
+        # Fetch latest company news via Finnhub (stable API vs scraped endpoints)
+        news_info = self._fetch_recent_news_finnhub(ticker=ticker, limit=5)
+        recent_news = news_info["recent_news"]
 
         # 5. Adversarial lab
         trades_arr = daily_returns[daily_returns != 0.0]
@@ -357,6 +357,11 @@ class QuantToolset:
                 "hurst_exponent": round(hurst, 4),
                 "tail_risk": tail,
                 "recent_news": recent_news,
+                "recent_news_count": int(news_info["recent_news_count"]),
+                "news_source": news_info["news_source"],
+                "news_status": news_info["news_status"],
+                "news_error": news_info["news_error"],
+                "news_symbol_used": news_info["news_symbol_used"],
             },
             "baseline_backtest": baseline,
             "wfo_optimal_params_history": optimal_params_list,
@@ -367,6 +372,100 @@ class QuantToolset:
                 "gaussian_gbm_mc": gbm,
             },
         }
+
+    def _fetch_recent_news_finnhub(self, ticker: str, limit: int = 5, lookback_days: int = 14) -> dict[str, Any]:
+        """Fetch recent company news headlines from Finnhub with explicit diagnostics."""
+        info: dict[str, Any] = {
+            "recent_news": [],
+            "recent_news_count": 0,
+            "news_source": "finnhub/company-news",
+            "news_status": "not_fetched",
+            "news_error": "",
+            "news_symbol_used": "",
+        }
+
+        api_key = os.getenv("FINNHUB_API_KEY", "").strip()
+        if not api_key:
+            logger.info("FINNHUB_API_KEY not set; skipping external news fetch.")
+            info["news_status"] = "missing_api_key"
+            info["news_error"] = "FINNHUB_API_KEY is not set"
+            return info
+
+        symbol = str(ticker).upper().strip()
+        if not symbol:
+            info["news_status"] = "invalid_symbol"
+            info["news_error"] = "Ticker symbol is empty"
+            return info
+
+        info["news_symbol_used"] = symbol
+
+        # Finnhub company-news coverage is for company equities.
+        if "-" in symbol or "/" in symbol or symbol.endswith("=X"):
+            info["news_status"] = "unsupported_symbol_for_company_news"
+            info["news_error"] = (
+                "Symbol format suggests non-equity instrument; company-news endpoint may not provide coverage"
+            )
+            return info
+
+        end_date = datetime.now(timezone.utc).date()
+        start_date = end_date - timedelta(days=max(1, int(lookback_days)))
+
+        url = "https://finnhub.io/api/v1/company-news"
+        params = {
+            "symbol": symbol,
+            "from": start_date.isoformat(),
+            "to": end_date.isoformat(),
+            "token": api_key,
+        }
+
+        try:
+            response = httpx.get(url, params=params, timeout=10.0)
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as exc:
+            logger.warning("Finnhub news fetch failed for %s: %s", symbol, exc)
+            info["news_status"] = "api_error"
+            info["news_error"] = str(exc)
+            return info
+
+        if isinstance(payload, dict):
+            # Finnhub can return an error object even when HTTP layer succeeds.
+            err = str(payload.get("error") or payload.get("message") or "Unexpected response object")
+            info["news_status"] = "api_error"
+            info["news_error"] = err
+            return info
+
+        if not isinstance(payload, list) or not payload:
+            info["news_status"] = "no_news"
+            info["news_error"] = "No headlines returned for date range"
+            return info
+
+        headlines: list[str] = []
+        for item in payload[: max(1, int(limit))]:
+            if not isinstance(item, dict):
+                continue
+            headline = str(item.get("headline") or "").strip()
+            if not headline:
+                continue
+
+            source = str(item.get("source") or "").strip()
+            timestamp = item.get("datetime")
+            date_str = ""
+            if isinstance(timestamp, (int, float)) and timestamp > 0:
+                try:
+                    date_str = datetime.fromtimestamp(timestamp, tz=timezone.utc).strftime("%Y-%m-%d")
+                except Exception:
+                    date_str = ""
+
+            parts = [p for p in (date_str, source, headline) if p]
+            headlines.append(" | ".join(parts) if parts else headline)
+
+        info["recent_news"] = headlines
+        info["recent_news_count"] = len(headlines)
+        info["news_status"] = "ok" if headlines else "no_news"
+        if not headlines:
+            info["news_error"] = "Response received but no usable headline entries were found"
+        return info
 
     # ------------------------------------------------------------------
     #  DATA INGESTION
@@ -405,7 +504,7 @@ class QuantToolset:
     #  WALK-FORWARD OPTIMIZATION (WFO)
     # ------------------------------------------------------------------
     def _run_wfo(self, df: pd.DataFrame, strategy_type: str, param_ranges: dict,
-                 wfo_train_days=180, wfo_test_days=30, optuna_trials=30,
+                 wfo_train_days=180, wfo_test_days=30, optuna_trials=150,
                  penalty_factor=2.0, fees=0.001, slippage=0.0005, tax_regime="none"):
         """Runs Walk-Forward Optimization across the dataset using Optuna."""
         optuna.logging.set_verbosity(optuna.logging.ERROR)
