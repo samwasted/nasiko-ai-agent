@@ -314,9 +314,6 @@ curl -X POST http://localhost:5000/ \
 ---
 
 ## 🔮 Future Work
-
-- [ ] Real-world slippage and commission cost modeling.
 - [ ] Position sizing (Kelly Criterion, ATR-based risk targeting).
 - [ ] Multi-asset portfolio simulation and co-integration testing.
 - [ ] Market regime detection (bull/bear/sideways segregation).
-- [ ] GPU-accelerated Monte Carlo execution paths.
