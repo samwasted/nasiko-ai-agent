@@ -56,90 +56,74 @@ DEFAULT STRATEGY PARAMETERS (use if user specifies a strategy but no parameter b
    - You may only mention news context if headlines are present in `data_profile.recent_news`.
 
 OUTPUT FORMAT RULES (STRICTLY FOLLOW):
-- DO NOT use any markdown symbols (no #, *, **, `, ```, -, etc.)
+- Use proper Markdown formatting (headings, lists, bold text)
 - DO NOT output raw JSON to the user
-- Present results in clean, structured PLAIN TEXT format
-- Use clear section headers with equals signs (========) or dashes (--------) as separators
-- Use spacing and indentation for readability
+- Use clear markdown headers instead of raw text separators
+- Use lists and bold text for readability
 
 After the tool returns, format your response EXACTLY like this example:
 
-========================================
-BLACK SWAN STRESS TEST REPORT
-========================================
-Ticker: AAPL
-Strategy: SMA Crossover
-Period: 2 Years
-Fast Period Range: 5-20 | Slow Period Range: 21-100
+# BLACK SWAN STRESS TEST REPORT
 
-----------------------------------------
-EXECUTION COSTS
-----------------------------------------
-Fees: 0.10% per trade
-Slippage: 0.05%
-Tax Regime: India (STCG 20% / LTCG 12.5%, threshold 365 days)
-Total Fees Deducted: 2.34%
-Total Slippage Cost: 1.17%
-Total Trades: 47 (42 short-term, 5 long-term)
-Total Tax Deducted: 0.89%
+**Ticker:** AAPL  
+**Strategy:** SMA Crossover  
+**Period:** 2 Years  
+**Fast Period Range:** 5-20 | **Slow Period Range:** 21-100  
 
-----------------------------------------
-BASELINE PERFORMANCE (Post-Cost, Post-Tax)
-----------------------------------------
-Net Return: -31.34%
-Annualized Return: -22.23%
-Max Drawdown: 41.68%
-Sharpe Ratio: -0.85
-Sortino Ratio: -0.98
-Win Rate: 46.28%
-Profit Factor: 0.87
+## EXECUTION COSTS
+- **Fees:** 0.10% per trade
+- **Slippage:** 0.05%
+- **Tax Regime:** India (STCG 20% / LTCG 12.5%, threshold 365 days)
+- **Total Fees Deducted:** 2.34%
+- **Total Slippage Cost:** 1.17%
+- **Total Trades:** 47 (42 short-term, 5 long-term)
+- **Total Tax Deducted:** 0.89%
 
-----------------------------------------
-DATA PROFILE
-----------------------------------------
-Hurst Exponent: 0.59 (Mild mean-reversion tendency)
-Skewness: -1.41 (Left-tailed distribution)
-Kurtosis: 17.52 (Fat tails - extreme events likely)
-VaR 95%: -2.64%
-CVaR 95%: -4.40%
+## BASELINE PERFORMANCE (Post-Cost, Post-Tax)
+- **Net Return:** -31.34%
+- **Annualized Return:** -22.23%
+- **Max Drawdown:** 41.68%
+- **Sharpe Ratio:** -0.85
+- **Sortino Ratio:** -0.98
+- **Win Rate:** 46.28%
+- **Profit Factor:** 0.87
 
-----------------------------------------
-MONTE CARLO STRESS TESTS
-----------------------------------------
-Connectivity Test:
-  Original Return: -31.34%
-  Avg Simulated: -25.25%
-  5th Percentile: -41.02%
-  95th Percentile: -6.73%
+## DATA PROFILE
+- **Hurst Exponent:** 0.59 (Mild mean-reversion tendency)
+- **Skewness:** -1.41 (Left-tailed distribution)
+- **Kurtosis:** 17.52 (Fat tails - extreme events likely)
+- **VaR 95%:** -2.64%
+- **CVaR 95%:** -4.40%
 
-Trade Sequence Test:
-  Actual Drawdown: 41.68%
-  Avg Simulated DD: 43.33%
-  VaR 95% DD: 52.68%
+## MONTE CARLO STRESS TESTS
+### Connectivity Test
+- **Original Return:** -31.34%
+- **Avg Simulated:** -25.25%
+- **5th Percentile:** -41.02%
+- **95th Percentile:** -6.73%
 
-Gaussian GBM Test:
-  Worst 5% Return: -61.43%
-  Best 5% Return: +25.24%
-  VaR 95% DD: 65.78%
+### Trade Sequence Test
+- **Actual Drawdown:** 41.68%
+- **Avg Simulated DD:** 43.33%
+- **VaR 95% DD:** 52.68%
 
-----------------------------------------
-RISK DIAGNOSTIC
-----------------------------------------
-[Provide 3-4 sentences of plain-text analysis here. Cross-reference the quantitative risks with any news from the recent_news field. DO NOT give buy/sell advice. Focus on strategy vulnerabilities, the impact of transaction costs and taxes on performance, and stress-test findings.]
+### Gaussian GBM Test
+- **Worst 5% Return:** -61.43%
+- **Best 5% Return:** +25.24%
+- **VaR 95% DD:** 65.78%
 
-----------------------------------------
-DEBUG SECTION
-----------------------------------------
-News Source: [data_profile.news_source]
-News Status: [data_profile.news_status]
-News Error: [data_profile.news_error]
-News Symbol Used: [data_profile.news_symbol_used]
-Recent News Count: [data_profile.recent_news_count]
-Recent News Array: [print the raw data_profile.recent_news array exactly as returned]
+## RISK DIAGNOSTIC
+[Provide 3-4 sentences of markdown-formatted analysis here. Cross-reference the quantitative risks with any news from the recent_news field. DO NOT give buy/sell advice. Focus on strategy vulnerabilities, the impact of transaction costs and taxes on performance, and stress-test findings.]
 
-========================================
-END OF REPORT
-========================================
+## DEBUG SECTION
+- **News Source:** [data_profile.news_source]
+- **News Status:** [data_profile.news_status]
+- **News Error:** [data_profile.news_error]
+- **News Symbol Used:** [data_profile.news_symbol_used]
+- **Recent News Count:** [data_profile.recent_news_count]
+
+**Recent News Array:** 
+[print the raw data_profile.recent_news array exactly as returned using markdown bullet points]
 
 IMPORTANT: Adapt the above template to the actual data returned. Never infer or fabricate news context when recent_news_count is 0.""",
     }

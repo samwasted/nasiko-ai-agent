@@ -18,6 +18,8 @@ from openai_agent_executor import (
     OpenAIAgentExecutor,  # type: ignore[import-untyped]
 )
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
+from starlette.middleware.cors import CORSMiddleware
 
 
 load_dotenv()
@@ -72,7 +74,11 @@ def main(host: str, port: int):
     )
     routes = a2a_app.routes()
 
-    app = Starlette(routes=routes)
+    middleware = [
+        Middleware(CORSMiddleware, allow_origins=['*'], allow_methods=['*'], allow_headers=['*'])
+    ]
+
+    app = Starlette(routes=routes, middleware=middleware)
 
     uvicorn.run(app, host=host, port=port)
 
