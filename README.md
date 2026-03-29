@@ -189,6 +189,7 @@ python -m src
 
 ## 🔬 Quantitative Engine
 
+
 ### Walk-Forward Optimization (WFO)
 Rather than optimizing parameters over the entire dataset, Black Swan perpetually trains and validates parameters forward through time.
 
@@ -205,7 +206,7 @@ Supports dynamic parameterization across standard implementations:
 - **Bands:** `bbands`, `kc`, `dc`
 
 *Note: All signals strictly enforce **t+1 execution lag** to eliminate lookahead bias.*
-
+<img width="2560" height="1442" alt="image" src="https://github.com/user-attachments/assets/efd7536d-d0b1-4cae-bbc0-137006c2ce9c" />
 ### Finnhub News Fetch Support
 Black Swan supports recent news ingestion through Finnhub and attaches headlines to the report context.
 
