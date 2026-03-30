@@ -270,9 +270,12 @@ To isolate structural robustness, the current engine:
 
 ## 🚀 Example Usage
 
-Because Black Swan is a headless A2A logic engine, you call it programmatically. Pass dynamic array boundaries directly in the prompt to trigger the optimization engine:
+## 🚀 Example Usage (A2A Confirmation Flow)
 
-**Request:**
+Because Black Swan is a headless A2A logic engine with built-in financial safeguards, it uses a mandatory two-step confirmation process. 
+
+**1. Initial Request:**
+Pass dynamic array boundaries and explicitly request custom fees, slippage, and tax regimes.
 ```bash
 curl -X POST http://localhost:5000/ \
 -H "Content-Type: application/json" \
@@ -283,13 +286,37 @@ curl -X POST http://localhost:5000/ \
   "params": {
     "message": {
       "messageId": "msg-01",
-      "timestamp": "2024-01-01T00:00:00Z",
+      "timestamp": "2026-03-29T00:00:00Z",
       "role": "user",
       "parts": [{
-        "text": "Run a robustness suite for an SMA strategy on BTC-USD. Use a 3y period. Optimize the fast_period between 5 and 20, and the slow_period between 21 and 100."
+        "text": "Run a robustness suite for an SMA strategy on BTC-USD. Use a 2y period. Optimize the fast_period between 5 and 20, and the slow_period between 21 and 100. Assume 0.1% fees, 0.05% slippage, and apply the US tax regime."
       }]
-    },
-    "metadata": {}
+    }
+  }
+}'
+```
+
+The agent will respond with a breakdown of execution parameters and ask "Proceed? (yes/no)". You will also receive a `contextId` in the JSON response.
+
+**2. Confirmation (Reply 'yes'):**
+Take the `contextId` from the previous response and reply "yes" to push the strategy into the Numba WFO engine.
+```bash
+curl -X POST http://localhost:5000/ \
+-H "Content-Type: application/json" \
+-d '{
+  "jsonrpc": "2.0",
+  "id": "2",
+  "method": "message/send",
+  "params": {
+    "message": {
+      "messageId": "msg-02",
+      "contextId": "b00b7c76-597a-4fb1-83f6-07fa756cc811",
+      "timestamp": "2026-03-29T00:01:00Z",
+      "role": "user",
+      "parts": [{
+        "text": "yes"
+      }]
+    }
   }
 }'
 ```
@@ -312,6 +339,7 @@ curl -X POST http://localhost:5000/ \
   "analytical_narrative": "Strategy displays strong autocorrelation resistance..."
 }
 ```
+
 
 ---
 
